@@ -1,0 +1,90 @@
+var http = require('http');
+var express = require('express');
+var braintree = require('braintree');
+var bodyParser = require('body-parser');
+var util = require('util');
+
+myserver = express();
+var jsonParser = bodyParser.json();
+myserver.use(bodyParser.urlencoded({ extended: false }));
+myserver.use(bodyParser.json());
+myserver.use('/css', express.static(__dirname + '/css'));
+myserver.use('/js', express.static(__dirname + '/js'));
+
+var server = myserver.listen(9000, function () {
+	//wait for connection and see if it wants to get a token or checkout and process it
+	console.log('listening...');	
+});
+
+/**
+ * Enable CORS (http://enable-cors.org/server_expressjs.html)
+ * to allow different clients to request data from your server
+ */
+myserver.use(function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
+
+myserver.get('/', function (request, response) {
+	response.sendFile(__dirname + "/index.html");
+});
+
+var gateway = braintree.connect({
+	environment: braintree.Environment.Sandbox,
+	merchantId: "XX",
+	publicKey: "XX",
+	privateKey: "XX"
+});
+
+myserver.get("/client_token", function (request, response) {
+	console.log('request for client token');
+	gateway.clientToken.generate({},
+		function (err, tokenResponse) {
+			response.type('application/json');
+			response.send(JSON.stringify(tokenResponse.clientToken));
+		});
+});
+
+myserver.post("/checkout", function (request, response) {
+	var paymentNonce = request.body.payment_method_nonce;
+	var transactionResult = "";
+
+	if (paymentNonce != null) {
+		gateway.transaction.sale({
+			amount: '10',
+			paymentMethodNonce: paymentNonce
+		}, function (err, result) {			
+			if (err) {
+				transactionResult = err;
+			}
+			else {
+				transactionResult = result.success;
+			}
+			response.send(JSON.stringify(transactionResult));
+		});
+	}
+});
+
+
+myserver.post('/api/v1/process', jsonParser, function (request, response) {
+console.log('request for payment processing');
+  var transaction = request.body;
+  var paymentNonce = request.body.payment_method_nonce;
+  if (paymentNonce != null) {
+	  console.log('paymentNonce not null');
+  gateway.transaction.sale({
+    amount: transaction.amount,
+    paymentMethodNonce: transaction.payment_method_nonce,
+	options: {
+				submitForSettlement: true
+			  }
+  }, function (err, result) {
+    if (err) throw err;
+    console.log(util.inspect(result));
+    response.json(result);
+  });
+  }else{
+	 console.log('paymentNonce is null'); 
+  }
+});

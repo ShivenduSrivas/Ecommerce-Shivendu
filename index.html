@@ -1,0 +1,204 @@
+<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="utf-8">
+<style>
+.hosted-field {
+  height: 50px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px;
+  display: inline-block;
+  box-shadow: none;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #dddddd;
+  line-height: 20px;
+  background: #fcfcfc;
+  margin-bottom: 12px;
+  background: linear-gradient(to right, white 50%, #fcfcfc 50%);
+  background-size: 200% 100%;
+  background-position: right bottom;
+  transition: all 300ms ease-in-out;
+}
+
+.hosted-fields--label {
+  font-family: courier, monospace;
+  text-transform: uppercase;
+  font-size: 14px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.button-container {
+  display: block;
+  text-align: center;
+}
+
+.button {
+  cursor: pointer;
+  font-weight: 500;
+  line-height: inherit;
+  position: relative;
+  text-decoration: none;
+  text-align: center;
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 3px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  display: inline-block;
+}
+
+.button--small {
+  padding: 10px 20px;
+  font-size: 0.875rem;
+}
+
+.button--green {
+  outline: none;
+  background-color: #64d18a;
+  border-color: #64d18a;
+  color: white;
+  transition: all 200ms ease;
+}
+
+.button--green:hover {
+  background-color: #8bdda8;
+  color: white;
+}
+
+.braintree-hosted-fields-focused {
+  border: 1px solid #64d18a;
+  border-radius: 1px;
+  background-position: left bottom;
+}
+
+.braintree-hosted-fields-invalid {
+  border: 1px solid #ed574a;
+}
+
+.braintree-hosted-fields-valid {
+}
+</style>
+</head>
+<body>
+  <form action="/" method="post" id="cardForm" >
+    <label class="hosted-fields--label" for="card-number">Card Number</label>
+    <div id="card-number" class="hosted-field"></div>
+
+    <label class="hosted-fields--label" for="expiration-date">Expiration Date</label>
+    <div id="expiration-date" class="hosted-field"></div>
+
+    <label class="hosted-fields--label" for="cvv">CVV</label>
+    <div id="cvv" class="hosted-field"></div>
+
+    <label class="hosted-fields--label" for="cvv">Postal Code</label>
+    <div id="postal-code" class="hosted-field"></div>
+
+    <div class="button-container">
+    <input type="submit" class="button button--small button--green" value="Purchase" id="submit"/>
+    </div>
+  </form>
+</div>
+<script type="text/javascript" src="js/jquery-1.11.3.min.js"></script>
+<script src="https://js.braintreegateway.com/js/braintree-2.24.0.min.js"></script>
+<script>
+
+var checkout;
+function requestToken() {
+	console.log('getting requesttoken...');
+	$.ajax({
+		url: '/client_token',
+		type: 'GET',
+		dataType: 'JSON',
+		contentType: 'application/json',
+		success: function (data) {
+			var clientToken = data;
+
+			//setup braintree form
+			createHostedFields(clientToken);
+		}
+	});
+}
+
+function requestPayment(nonce) {
+	console.log('requesting for payment...');
+	alert(nonce.nonce);
+	$.ajax({
+		url: '/api/v1/process',
+		type: 'POST',
+		data: {
+              amount: '20',
+              payment_method_nonce: nonce.nonce
+            },
+
+		success: function (data) {
+			 console.log(data.success);
+		}
+	});
+}
+
+
+function createHostedFields(clientToken) {
+  braintree.setup(clientToken, "custom", {
+    id: "cardForm",
+    hostedFields: {
+      number: {
+        selector: "#card-number",
+        placeholder: "4111 1111 1111 1111"
+      },
+      cvv: {
+        selector: "#cvv",
+        placeholder: "111"
+      },
+      expirationDate: {
+        selector: "#expiration-date",
+        placeholder: "MM/YY"
+      },
+      postalCode: {
+        selector: "#postal-code",
+        placeholder: "11111"
+      },
+      styles: {
+        'input': {
+          'font-size': '16px',
+          'font-family': 'courier, monospace',
+          'font-weight': 'lighter',
+          'color': '#ccc'
+        },
+        ':focus': {
+          'color': 'black'
+        },
+        '.valid': {
+          'color': '#8bdda8'
+        }
+      }
+    },
+    onReady: function (integration) {
+	//onReady callback that will fire when your chosen integration is fully loaded and ready to be interacted with
+      checkout = integration;
+    },
+    onPaymentMethodReceived: function (nonce) {
+      alert('Submit your nonce to your server!');
+	  console.log(JSON.stringify(nonce));
+	  requestPayment(nonce);
+   //   checkout.teardown(function (nonce) {	  
+   //     checkout = null;
+   //     createHostedFields();
+    //  });
+    }
+  });
+}
+
+$(function () {	
+	requestToken();
+});
+
+
+</script>
+
+</body>
+</html>
